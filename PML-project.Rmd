@@ -1,0 +1,21 @@
+# PML course project
+## Tavin Cole
+
+```{r}
+dtest <- read.csv('pml-testing.csv', as.is = TRUE, na.strings = c('NA', '#DIV/0!'))[,-1]
+dtrain <- read.csv('pml-training.csv', as.is = TRUE, na.strings = c('NA', '#DIV/0!'))[,-1]
+
+navars <- which(sapply(dtest, function(x) all(is.na(x))))
+metavars <- c('raw_timestamp_part_1', 'raw_timestamp_part_2', 'cvtd_timestamp', 'new_window', 'num_window')
+
+dtrain <- dtrain[,-navars]
+dtrain <- dtrain[,-which(names(dtrain) %in% metavars)]
+dtrain$classe <- factor(dtrain$classe)
+
+library(caret)
+library(randomForest)
+
+fit <- train(classe ~ ., data = dtrain, method = 'rf', trControl = trainControl(method = 'oob'))
+fit$finalModel
+predict(fit, dtest)
+```

@@ -1,21 +1,66 @@
-# PML course project
+# Classifying barbell exercises using accelerometer data
 ## Tavin Cole
+
+## Summary
+
+We investigate the _Weight Lifting Exercises Dataset_ [^1].
+
+The manner in which the exercises are performed is classified as one of 5 values (A, B, C, D, E) -- the `classe` observation. We train a random forest model using the accelerometer data in order to predict `classe`. Our deliverables are a set of 20 predictions against a testing set and an out-of-sample error estimate.
+
+The random forest algorithm with OOB (out of bag) cross-validation is used because of its high accuracy, fast computation, and the automatic estimation of out-of-sample error as part of the process.
+
+## Analysis
+
+The data are mostly numeric with a few factors and timestamps. The first column in the CSV files contains line numbers which are discarded. Some numeric fields contain the strings `NA` or `#DIV/0!`. We treat these as `NA` values and disable automatic recognition of factors:
 
 ```{r}
 dtest <- read.csv('pml-testing.csv', as.is = TRUE, na.strings = c('NA', '#DIV/0!'))[,-1]
 dtrain <- read.csv('pml-training.csv', as.is = TRUE, na.strings = c('NA', '#DIV/0!'))[,-1]
+```
 
+Some fields contain all `NA` values. If we identify these fields in the testing set and training set, the former are a superset of the latter (not shown). Hence the fields with only `NA` values in the testing set are eliminated from the training set. They are useless for model building because our final goal is prediction based on the testing set.
+
+Additionally, some fields from the training set are selected by the random forest algorithm as the most important variables, but are tied to the sequence of the rows and would likely contribute errors when applying the model to the testing set. Training runs (not shown) reveal these fields are `raw_timestamp_part_1`, `raw_timestamp_part_2`, `cvtd_timestamp`, `new_window`, and `num_window`. These are also eliminated.
+
+Finally, the `classe` field is converted to a factor:
+
+```{r}
 navars <- which(sapply(dtest, function(x) all(is.na(x))))
 metavars <- c('raw_timestamp_part_1', 'raw_timestamp_part_2', 'cvtd_timestamp', 'new_window', 'num_window')
-
 dtrain <- dtrain[,-navars]
 dtrain <- dtrain[,-which(names(dtrain) %in% metavars)]
 dtrain$classe <- factor(dtrain$classe)
+```
 
+Having thus processed the training set, the random forest can be trained:
+
+```{r message=FALSE, cache=TRUE}
 library(caret)
 library(randomForest)
-
+set.seed(1721849616)
 fit <- train(classe ~ ., data = dtrain, method = 'rf', trControl = trainControl(method = 'oob'))
-fit$finalModel
-predict(fit, dtest)
 ```
+
+Consider the variable importance rankings from the resulting model:
+
+```{r message=FALSE}
+library(caret)
+varImp(fit)
+```
+
+The selected variables make sense and do not appear to represent side effects of data collection like the variables eliminated above.
+
+## Results
+
+The testing set predictions and out-of-sample error estimate are produced as follows:
+
+```{r message=FALSE}
+predict(fit, dtest)
+fit$finalModel
+```
+
+Hence the out-of-sample error rate for this model is estimated to be 0.41%.
+
+## References
+
+[^1]: http://groupware.les.inf.puc-rio.br/har
